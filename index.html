@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vancouver Park Shade Finder</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <style>
         * {
             margin: 0;
@@ -23,12 +24,13 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
+            position: relative;
         }
 
         .app-header {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
-            padding: 15px 20px;
+            padding: 15px 20px 10px;
             box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
             z-index: 1000;
         }
@@ -40,7 +42,7 @@
         }
 
         .app-title {
-            font-size: 1.4rem;
+            font-size: 1.3rem;
             font-weight: 700;
             background: linear-gradient(45deg, #667eea, #764ba2);
             -webkit-background-clip: text;
@@ -49,7 +51,7 @@
         }
 
         .location-status {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #666;
             display: flex;
             align-items: center;
@@ -58,13 +60,12 @@
 
         .controls-bar {
             background: rgba(255, 255, 255, 0.95);
-            padding: 10px 20px;
+            padding: 8px 20px 12px;
             display: flex;
             gap: 10px;
             align-items: center;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
             z-index: 999;
-            flex-wrap: wrap;
         }
 
         .time-control {
@@ -72,10 +73,9 @@
             align-items: center;
             gap: 8px;
             background: rgba(102, 126, 234, 0.1);
-            padding: 8px 12px;
+            padding: 10px 15px;
             border-radius: 12px;
             flex: 1;
-            min-width: 140px;
         }
 
         .time-input {
@@ -90,11 +90,11 @@
             outline: none;
         }
 
-        .btn {
+        .now-btn {
             background: linear-gradient(45deg, #667eea, #764ba2);
             color: white;
             border: none;
-            padding: 8px 16px;
+            padding: 10px 16px;
             border-radius: 12px;
             font-size: 0.85rem;
             font-weight: 600;
@@ -103,7 +103,7 @@
             white-space: nowrap;
         }
 
-        .btn:hover {
+        .now-btn:hover {
             transform: translateY(-1px);
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
         }
@@ -111,129 +111,64 @@
         .map-container {
             flex: 1;
             position: relative;
-            background: linear-gradient(135deg, #e3f2fd 0%, #f1f8e9 100%);
+            margin-bottom: 80px;
         }
 
-        .map-view {
-            width: 100%;
+        #map {
             height: 100%;
-            position: relative;
-            overflow: hidden;
+            width: 100%;
         }
 
-        .park-marker {
-            position: absolute;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
             display: flex;
+            justify-content: space-around;
             align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            cursor: pointer;
-            transform: translate(-50%, -50%);
-            transition: all 0.3s ease;
-            border: 3px solid white;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            z-index: 10;
+            box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
         }
 
-        .park-marker:hover {
-            transform: translate(-50%, -50%) scale(1.2);
-            z-index: 20;
-        }
-
-        .park-marker.excellent { background: #4caf50; }
-        .park-marker.good { background: #8bc34a; }
-        .park-marker.moderate { background: #ffc107; }
-        .park-marker.poor { background: #ff9800; }
-        .park-marker.minimal { background: #f44336; }
-
-        .user-marker {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            background: #2196f3;
-            border: 3px solid white;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 15;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); }
-        }
-
-        .park-popup {
-            position: absolute;
-            background: white;
+        .nav-btn {
+            background: transparent;
+            border: none;
+            padding: 12px 16px;
             border-radius: 12px;
-            padding: 15px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-            min-width: 250px;
-            max-width: 300px;
-            z-index: 100;
-            transform: translate(-50%, -100%);
-            margin-top: -10px;
-            display: none;
-        }
-
-        .park-popup::after {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            border: 8px solid transparent;
-            border-top-color: white;
-        }
-
-        .popup-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 10px;
-            gap: 10px;
-        }
-
-        .popup-title {
-            font-size: 1.1rem;
+            font-size: 0.8rem;
             font-weight: 600;
-            color: #333;
-            flex: 1;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: #666;
+            min-width: 70px;
         }
 
-        .popup-score {
+        .nav-btn.active {
             background: linear-gradient(45deg, #667eea, #764ba2);
             color: white;
-            padding: 4px 10px;
-            border-radius: 15px;
-            font-size: 0.85rem;
-            font-weight: 600;
+            transform: translateY(-2px);
         }
 
-        .popup-details {
-            font-size: 0.85rem;
-            color: #666;
-            line-height: 1.4;
-        }
-
-        .popup-features {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .popup-feature {
+        .nav-btn:hover:not(.active) {
             background: rgba(102, 126, 234, 0.1);
-            padding: 4px 8px;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            color: #555;
+            color: #667eea;
+        }
+
+        .nav-icon {
+            font-size: 1.2rem;
+        }
+
+        .nav-label {
+            font-size: 0.7rem;
         }
 
         .sun-indicator {
@@ -246,7 +181,7 @@
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             font-size: 0.85rem;
             color: #666;
-            z-index: 50;
+            z-index: 1000;
         }
 
         .legend {
@@ -257,7 +192,7 @@
             padding: 12px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            z-index: 50;
+            z-index: 1000;
         }
 
         .legend-title {
@@ -291,7 +226,7 @@
             right: 0;
             bottom: 0;
             background: white;
-            z-index: 200;
+            z-index: 2000;
             display: none;
             overflow-y: auto;
             padding: 20px;
@@ -373,6 +308,97 @@
             color: #555;
         }
 
+        /* Custom marker styles */
+        .custom-marker {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            border: 3px solid white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .custom-marker:hover {
+            transform: scale(1.2);
+        }
+
+        .marker-excellent { background: #4caf50; }
+        .marker-good { background: #8bc34a; }
+        .marker-moderate { background: #ffc107; }
+        .marker-poor { background: #ff9800; }
+        .marker-minimal { background: #f44336; }
+
+        .user-marker {
+            width: 20px;
+            height: 20px;
+            background: #2196f3;
+            border: 3px solid white;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); }
+        }
+
+        /* Custom popup styles */
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+
+        .popup-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+
+        .popup-score {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .popup-details {
+            font-size: 0.85rem;
+            color: #666;
+            line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        .popup-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .popup-feature {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: #555;
+        }
+
         @media (max-width: 480px) {
             .controls-bar {
                 padding: 8px 15px;
@@ -386,11 +412,6 @@
             .legend, .sun-indicator {
                 font-size: 0.75rem;
                 padding: 8px 10px;
-            }
-            
-            .park-popup {
-                min-width: 200px;
-                max-width: 250px;
             }
         }
     </style>
@@ -411,15 +432,11 @@
                 <span>🕐</span>
                 <input type="datetime-local" class="time-input" id="datetimeInput">
             </div>
-            <button class="btn" onclick="setCurrentTime()">Now</button>
-            <button class="btn" onclick="getUserLocation()">📍 Locate</button>
-            <button class="btn" onclick="toggleView()" id="viewToggle">📋 List</button>
+            <button class="now-btn" onclick="setCurrentTime()">Now</button>
         </div>
 
         <div class="map-container">
-            <div class="map-view" id="mapView">
-                <!-- Parks and user location will be positioned here -->
-            </div>
+            <div id="map"></div>
 
             <div class="sun-indicator" id="sunIndicator">
                 ☀️ Sun: Calculating...
@@ -449,10 +466,6 @@
                 </div>
             </div>
 
-            <div class="park-popup" id="parkPopup">
-                <!-- Park details will be shown here -->
-            </div>
-
             <div class="list-view" id="listView">
                 <div class="list-header">
                     <h2>Parks Ranked by Shade</h2>
@@ -463,13 +476,32 @@
                 </div>
             </div>
         </div>
+
+        <div class="bottom-nav">
+            <button class="nav-btn active" onclick="showMapView()" id="mapNavBtn">
+                <div class="nav-icon">🗺️</div>
+                <div class="nav-label">Map</div>
+            </button>
+            <button class="nav-btn" onclick="toggleView()" id="listNavBtn">
+                <div class="nav-icon">📋</div>
+                <div class="nav-label">List</div>
+            </button>
+            <button class="nav-btn" onclick="getUserLocation()" id="locateNavBtn">
+                <div class="nav-icon">📍</div>
+                <div class="nav-label">Locate</div>
+            </button>
+        </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script>
         // Vancouver downtown coordinates as default
         const DEFAULT_LOCATION = { lat: 49.2827, lng: -123.1207 };
         let userLocation = DEFAULT_LOCATION;
         let currentView = 'map';
+        let map;
+        let parkMarkers = [];
+        let userMarker;
 
         // Vancouver parks with coordinates and shade characteristics
         const vancouverParks = [
@@ -555,6 +587,18 @@
             }
         ];
 
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([userLocation.lat, userLocation.lng], 12);
+            
+            // Add Carto Positron (light) tiles
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(map);
+        }
+
         // Solar calculation functions
         function calculateSolarPosition(datetime) {
             const lat = 49.2827; // Vancouver
@@ -616,20 +660,35 @@
             return { class: 'minimal', label: 'Minimal' };
         }
 
-        // Map positioning functions
-        function latLngToPixel(lat, lng, mapBounds, mapSize) {
-            const x = ((lng - mapBounds.west) / (mapBounds.east - mapBounds.west)) * mapSize.width;
-            const y = ((mapBounds.north - lat) / (mapBounds.north - mapBounds.south)) * mapSize.height;
-            return { x, y };
+        // Create custom marker
+        function createParkMarker(park, shadeScore) {
+            const category = getShadeCategory(shadeScore);
+            const icon = park.playground ? '🎮' : '🌳';
+            
+            const markerHtml = `
+                <div class="custom-marker marker-${category.class}">
+                    ${icon}
+                </div>
+            `;
+            
+            return L.divIcon({
+                html: markerHtml,
+                className: 'custom-div-icon',
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
         }
 
-        function getMapBounds(centerLat, centerLng, zoomLevel = 0.1) {
-            return {
-                north: centerLat + zoomLevel,
-                south: centerLat - zoomLevel,
-                east: centerLng + zoomLevel,
-                west: centerLng - zoomLevel
-            };
+        // Create user marker
+        function createUserMarker() {
+            const markerHtml = '<div class="user-marker"></div>';
+            
+            return L.divIcon({
+                html: markerHtml,
+                className: 'custom-div-icon',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
         }
 
         // UI Functions
@@ -644,17 +703,40 @@
                             lng: position.coords.longitude
                         };
                         document.getElementById('locationStatus').innerHTML = '📍 Current location';
+                        map.setView([userLocation.lat, userLocation.lng], 12);
                         updateMap();
                     },
                     (error) => {
-                        console.log('Location error:', error);
-                        document.getElementById('locationStatus').innerHTML = '📍 Downtown Vancouver (default)';
+                        console.log('Location error details:', {
+                            code: error.code,
+                            message: error.message
+                        });
+                        
+                        let errorMessage = 'Location unavailable';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMessage = 'Location access denied';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMessage = 'Location unavailable';
+                                break;
+                            case error.TIMEOUT:
+                                errorMessage = 'Location timeout';
+                                break;
+                        }
+                        
+                        document.getElementById('locationStatus').innerHTML = `📍 ${errorMessage} - using Vancouver`;
                         userLocation = DEFAULT_LOCATION;
                         updateMap();
+                    },
+                    {
+                        timeout: 10000,
+                        enableHighAccuracy: false,
+                        maximumAge: 300000 // 5 minutes
                     }
                 );
             } else {
-                document.getElementById('locationStatus').innerHTML = '📍 Downtown Vancouver (default)';
+                document.getElementById('locationStatus').innerHTML = '📍 Geolocation not supported - using Vancouver';
                 userLocation = DEFAULT_LOCATION;
                 updateMap();
             }
@@ -677,93 +759,83 @@
             document.getElementById('sunIndicator').innerHTML = 
                 `☀️ Sun: ${Math.round(solarElevation)}° elevation`;
 
-            // Calculate shade scores and render map
-            const mapView = document.getElementById('mapView');
-            const mapBounds = getMapBounds(userLocation.lat, userLocation.lng);
-            const mapSize = { width: mapView.offsetWidth, height: mapView.offsetHeight };
-
             // Clear existing markers
-            mapView.querySelectorAll('.park-marker, .user-marker').forEach(el => el.remove());
+            parkMarkers.forEach(marker => map.removeLayer(marker));
+            parkMarkers = [];
+            
+            if (userMarker) {
+                map.removeLayer(userMarker);
+            }
 
             // Add user location marker
-            const userPos = latLngToPixel(userLocation.lat, userLocation.lng, mapBounds, mapSize);
-            const userMarker = document.createElement('div');
-            userMarker.className = 'user-marker';
-            userMarker.style.left = userPos.x + 'px';
-            userMarker.style.top = userPos.y + 'px';
-            userMarker.title = 'Your location';
-            mapView.appendChild(userMarker);
+            userMarker = L.marker([userLocation.lat, userLocation.lng], {
+                icon: createUserMarker()
+            }).addTo(map);
+            userMarker.bindPopup('Your location');
 
             // Add park markers
             vancouverParks.forEach(park => {
-                const shadeScore = calculateShadeScore(park, solarElevation, userLocation.lat, userLocation.lng);
-                const category = getShadeCategory(shadeScore);
-                const parkPos = latLngToPixel(park.lat, park.lng, mapBounds, mapSize);
+                const distance = calculateDistance(userLocation.lat, userLocation.lng, park.lat, park.lng);
                 
-                // Only show parks within map bounds
-                if (parkPos.x >= 0 && parkPos.x <= mapSize.width && 
-                    parkPos.y >= 0 && parkPos.y <= mapSize.height) {
+                // Show parks within reasonable distance (20km)
+                if (distance <= 20) {
+                    const shadeScore = calculateShadeScore(park, solarElevation, userLocation.lat, userLocation.lng);
+                    const category = getShadeCategory(shadeScore);
                     
-                    const marker = document.createElement('div');
-                    marker.className = `park-marker ${category.class}`;
-                    marker.style.left = parkPos.x + 'px';
-                    marker.style.top = parkPos.y + 'px';
-                    marker.innerHTML = park.playground ? '🎮' : '🌳';
-                    marker.onclick = () => showParkPopup(park, shadeScore, marker);
-                    mapView.appendChild(marker);
+                    const marker = L.marker([park.lat, park.lng], {
+                        icon: createParkMarker(park, shadeScore)
+                    }).addTo(map);
+                    
+                    const popupContent = `
+                        <div class="popup-header">
+                            <div class="popup-title">${park.name}</div>
+                            <div class="popup-score">${Math.round(shadeScore)}</div>
+                        </div>
+                        <div class="popup-details">
+                            <strong>${category.label} shade</strong> • ${park.type}<br>
+                            Distance: ${distance.toFixed(1)} km
+                        </div>
+                        <div class="popup-features">
+                            ${park.features.map(feature => `<div class="popup-feature">${feature}</div>`).join('')}
+                        </div>
+                    `;
+                    
+                    marker.bindPopup(popupContent);
+                    parkMarkers.push(marker);
                 }
             });
         }
 
-        function showParkPopup(park, shadeScore, marker) {
-            const popup = document.getElementById('parkPopup');
-            const category = getShadeCategory(shadeScore);
+        function showMapView() {
+            const listView = document.getElementById('listView');
+            const mapNavBtn = document.getElementById('mapNavBtn');
+            const listNavBtn = document.getElementById('listNavBtn');
             
-            popup.innerHTML = `
-                <div class="popup-header">
-                    <div class="popup-title">${park.name}</div>
-                    <div class="popup-score">${Math.round(shadeScore)}</div>
-                </div>
-                <div class="popup-details">
-                    <strong>${category.label} shade</strong> • ${park.type}
-                    <br>
-                    Distance: ${calculateDistance(userLocation.lat, userLocation.lng, park.lat, park.lng).toFixed(1)} km
-                </div>
-                <div class="popup-features">
-                    ${park.features.map(feature => `<div class="popup-feature">${feature}</div>`).join('')}
-                </div>
-            `;
+            listView.style.display = 'none';
+            currentView = 'map';
             
-            popup.style.left = marker.style.left;
-            popup.style.top = marker.style.top;
-            popup.style.display = 'block';
-            
-            // Hide popup when clicking elsewhere
-            setTimeout(() => {
-                document.addEventListener('click', function hidePopup(e) {
-                    if (!popup.contains(e.target) && e.target !== marker) {
-                        popup.style.display = 'none';
-                        document.removeEventListener('click', hidePopup);
-                    }
-                });
-            }, 100);
+            // Update nav buttons
+            mapNavBtn.classList.add('active');
+            listNavBtn.classList.remove('active');
         }
 
         function toggleView() {
             const listView = document.getElementById('listView');
-            const viewToggle = document.getElementById('viewToggle');
+            const mapNavBtn = document.getElementById('mapNavBtn');
+            const listNavBtn = document.getElementById('listNavBtn');
             
             if (currentView === 'map') {
                 // Switch to list view
                 listView.style.display = 'block';
-                viewToggle.innerHTML = '🗺️ Map';
                 currentView = 'list';
                 updateListView();
+                
+                // Update nav buttons
+                mapNavBtn.classList.remove('active');
+                listNavBtn.classList.add('active');
             } else {
                 // Switch to map view
-                listView.style.display = 'none';
-                viewToggle.innerHTML = '📋 List';
-                currentView = 'map';
+                showMapView();
             }
         }
 
@@ -802,8 +874,22 @@
 
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('App starting...');
+            
+            // Initialize map first
+            initMap();
+            
+            // Set current time
             setCurrentTime();
-            getUserLocation();
+            
+            // Start with default location and update map
+            console.log('Using default location:', DEFAULT_LOCATION);
+            updateMap();
+            
+            // Try to get user location after initial load
+            setTimeout(() => {
+                getUserLocation();
+            }, 1000);
             
             // Update when time changes
             document.getElementById('datetimeInput').addEventListener('change', updateMap);
@@ -811,8 +897,10 @@
 
         // Handle window resize
         window.addEventListener('resize', () => {
-            if (currentView === 'map') {
-                updateMap();
+            if (map) {
+                setTimeout(() => {
+                    map.invalidateSize();
+                }, 100);
             }
         });
     </script>
