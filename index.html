@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vancouver Park Shade Finder</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .app-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .location-status {
+            font-size: 0.8rem;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .controls-bar {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            z-index: 999;
+            flex-wrap: wrap;
+        }
+
+        .time-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 8px 12px;
+            border-radius: 12px;
+            flex: 1;
+            min-width: 140px;
+        }
+
+        .time-input {
+            border: none;
+            background: transparent;
+            font-size: 0.9rem;
+            color: #333;
+            width: 100%;
+        }
+
+        .time-input:focus {
+            outline: none;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+            background: linear-gradient(135deg, #e3f2fd 0%, #f1f8e9 100%);
+        }
+
+        .map-view {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .park-marker {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s ease;
+            border: 3px solid white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+
+        .park-marker:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+            z-index: 20;
+        }
+
+        .park-marker.excellent { background: #4caf50; }
+        .park-marker.good { background: #8bc34a; }
+        .park-marker.moderate { background: #ffc107; }
+        .park-marker.poor { background: #ff9800; }
+        .park-marker.minimal { background: #f44336; }
+
+        .user-marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #2196f3;
+            border: 3px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 15;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); }
+        }
+
+        .park-popup {
+            position: absolute;
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            min-width: 250px;
+            max-width: 300px;
+            z-index: 100;
+            transform: translate(-50%, -100%);
+            margin-top: -10px;
+            display: none;
+        }
+
+        .park-popup::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-top-color: white;
+        }
+
+        .popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+
+        .popup-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+
+        .popup-score {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .popup-details {
+            font-size: 0.85rem;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .popup-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .popup-feature {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: #555;
+        }
+
+        .sun-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            font-size: 0.85rem;
+            color: #666;
+            z-index: 50;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            z-index: 50;
+        }
+
+        .legend-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .list-view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            z-index: 200;
+            display: none;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .back-btn {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .park-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid transparent;
+        }
+
+        .park-card.excellent { border-left-color: #4caf50; }
+        .park-card.good { border-left-color: #8bc34a; }
+        .park-card.moderate { border-left-color: #ffc107; }
+        .park-card.poor { border-left-color: #ff9800; }
+        .park-card.minimal { border-left-color: #f44336; }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .card-score {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .card-details {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .card-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .card-feature {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 3px 8px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: #555;
+        }
+
+        @media (max-width: 480px) {
+            .controls-bar {
+                padding: 8px 15px;
+                gap: 8px;
+            }
+            
+            .time-control {
+                min-width: 120px;
+            }
+            
+            .legend, .sun-indicator {
+                font-size: 0.75rem;
+                padding: 8px 10px;
+            }
+            
+            .park-popup {
+                min-width: 200px;
+                max-width: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="app-header">
+            <div class="header-content">
+                <h1 class="app-title">🌳 Vancouver Shade Finder</h1>
+                <div class="location-status" id="locationStatus">
+                    📍 Downtown Vancouver
+                </div>
+            </div>
+        </div>
+
+        <div class="controls-bar">
+            <div class="time-control">
+                <span>🕐</span>
+                <input type="datetime-local" class="time-input" id="datetimeInput">
+            </div>
+            <button class="btn" onclick="setCurrentTime()">Now</button>
+            <button class="btn" onclick="getUserLocation()">📍 Locate</button>
+            <button class="btn" onclick="toggleView()" id="viewToggle">📋 List</button>
+        </div>
+
+        <div class="map-container">
+            <div class="map-view" id="mapView">
+                <!-- Parks and user location will be positioned here -->
+            </div>
+
+            <div class="sun-indicator" id="sunIndicator">
+                ☀️ Sun: Calculating...
+            </div>
+
+            <div class="legend">
+                <div class="legend-title">Shade Level</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4caf50;"></div>
+                    <span>Excellent (80+)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #8bc34a;"></div>
+                    <span>Good (65-79)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffc107;"></div>
+                    <span>Moderate (50-64)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff9800;"></div>
+                    <span>Limited (30-49)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f44336;"></div>
+                    <span>Minimal (<30)</span>
+                </div>
+            </div>
+
+            <div class="park-popup" id="parkPopup">
+                <!-- Park details will be shown here -->
+            </div>
+
+            <div class="list-view" id="listView">
+                <div class="list-header">
+                    <h2>Parks Ranked by Shade</h2>
+                    <button class="back-btn" onclick="toggleView()">← Back to Map</button>
+                </div>
+                <div id="parksList">
+                    <!-- Park list will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Vancouver downtown coordinates as default
+        const DEFAULT_LOCATION = { lat: 49.2827, lng: -123.1207 };
+        let userLocation = DEFAULT_LOCATION;
+        let currentView = 'map';
+
+        // Vancouver parks with coordinates and shade characteristics
+        const vancouverParks = [
+            {
+                name: "Queen Elizabeth Park",
+                lat: 49.2404,
+                lng: -123.1129,
+                type: "Major Park",
+                treeCanopy: 85,
+                structures: 15,
+                playground: true,
+                features: ["🌲 Dense Trees", "🏛️ Pavilion", "🎮 Playground"]
+            },
+            {
+                name: "Stanley Park",
+                lat: 49.3017,
+                lng: -123.1442,
+                type: "Major Park",
+                treeCanopy: 80,
+                structures: 12,
+                playground: true,
+                features: ["🌲 Old Growth", "🏛️ Pavilions", "🎮 Playgrounds"]
+            },
+            {
+                name: "VanDusen Botanical Garden",
+                lat: 49.2388,
+                lng: -123.1318,
+                type: "Botanical Garden", 
+                treeCanopy: 90,
+                structures: 20,
+                playground: false,
+                features: ["🌿 Dense Canopy", "🏛️ Structures", "🌺 Gardens"]
+            },
+            {
+                name: "Dr. Sun Yat-Sen Garden",
+                lat: 49.2792,
+                lng: -123.1033,
+                type: "Cultural Garden",
+                treeCanopy: 70,
+                structures: 40,
+                playground: false,
+                features: ["🏮 Traditional", "🌿 Covered", "🏛️ Pavilions"]
+            },
+            {
+                name: "Jericho Beach Park",
+                lat: 49.2769,
+                lng: -123.1972,
+                type: "Beach Park",
+                treeCanopy: 25,
+                structures: 10,
+                playground: true,
+                features: ["🏖️ Beach", "🌲 Some Trees", "🎮 Playground"]
+            },
+            {
+                name: "English Bay Beach",
+                lat: 49.2867,
+                lng: -123.1396,
+                type: "Beach",
+                treeCanopy: 15,
+                structures: 5,
+                playground: false,
+                features: ["🏖️ Open Beach", "☀️ Minimal Shade", "🏐 Sports"]
+            },
+            {
+                name: "Kitsilano Beach Park",
+                lat: 49.2756,
+                lng: -123.1553,
+                type: "Beach Park",
+                treeCanopy: 30,
+                structures: 8,
+                playground: true,
+                features: ["🏖️ Beach", "🌲 Tree Areas", "🎮 Playground"]
+            },
+            {
+                name: "Trout Lake Park",
+                lat: 49.2540,
+                lng: -123.0693,
+                type: "Community Park",
+                treeCanopy: 60,
+                structures: 15,
+                playground: true,
+                features: ["🌊 Lake", "🌲 Good Trees", "🎮 Playground"]
+            }
+        ];
+
+        // Solar calculation functions
+        function calculateSolarPosition(datetime) {
+            const lat = 49.2827; // Vancouver
+            
+            const date = new Date(datetime);
+            const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
+            const hour = date.getHours() + date.getMinutes() / 60;
+            
+            const declination = 23.45 * Math.sin((360 * (284 + dayOfYear) / 365) * Math.PI / 180);
+            const hourAngle = 15 * (hour - 12);
+            
+            const elevation = Math.asin(
+                Math.sin(declination * Math.PI / 180) * Math.sin(lat * Math.PI / 180) +
+                Math.cos(declination * Math.PI / 180) * Math.cos(lat * Math.PI / 180) * Math.cos(hourAngle * Math.PI / 180)
+            ) * 180 / Math.PI;
+            
+            return Math.max(0, elevation);
+        }
+
+        function calculateShadeScore(park, solarElevation, userLat = null, userLng = null) {
+            let baseShade = park.treeCanopy;
+            let structureShade = park.structures;
+            
+            const solarIntensity = Math.max(0, solarElevation);
+            const intensityFactor = 1 - (solarIntensity / 90) * 0.4;
+            
+            let effectiveShade = (baseShade * 0.7 + structureShade * 0.3) * intensityFactor;
+            
+            if (park.playground) {
+                effectiveShade += 5;
+            }
+
+            // Distance bonus - closer parks get slight preference
+            if (userLat && userLng) {
+                const distance = calculateDistance(userLat, userLng, park.lat, park.lng);
+                const distanceBonus = Math.max(0, 10 - distance);
+                effectiveShade += distanceBonus * 0.5;
+            }
+            
+            return Math.min(100, Math.max(0, effectiveShade));
+        }
+
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function getShadeCategory(score) {
+            if (score >= 80) return { class: 'excellent', label: 'Excellent' };
+            if (score >= 65) return { class: 'good', label: 'Good' };
+            if (score >= 50) return { class: 'moderate', label: 'Moderate' };
+            if (score >= 30) return { class: 'poor', label: 'Limited' };
+            return { class: 'minimal', label: 'Minimal' };
+        }
+
+        // Map positioning functions
+        function latLngToPixel(lat, lng, mapBounds, mapSize) {
+            const x = ((lng - mapBounds.west) / (mapBounds.east - mapBounds.west)) * mapSize.width;
+            const y = ((mapBounds.north - lat) / (mapBounds.north - mapBounds.south)) * mapSize.height;
+            return { x, y };
+        }
+
+        function getMapBounds(centerLat, centerLng, zoomLevel = 0.1) {
+            return {
+                north: centerLat + zoomLevel,
+                south: centerLat - zoomLevel,
+                east: centerLng + zoomLevel,
+                west: centerLng - zoomLevel
+            };
+        }
+
+        // UI Functions
+        function getUserLocation() {
+            document.getElementById('locationStatus').innerHTML = '📍 Finding location...';
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        document.getElementById('locationStatus').innerHTML = '📍 Current location';
+                        updateMap();
+                    },
+                    (error) => {
+                        console.log('Location error:', error);
+                        document.getElementById('locationStatus').innerHTML = '📍 Downtown Vancouver (default)';
+                        userLocation = DEFAULT_LOCATION;
+                        updateMap();
+                    }
+                );
+            } else {
+                document.getElementById('locationStatus').innerHTML = '📍 Downtown Vancouver (default)';
+                userLocation = DEFAULT_LOCATION;
+                updateMap();
+            }
+        }
+
+        function setCurrentTime() {
+            const now = new Date();
+            const datetime = now.toISOString().slice(0, 16);
+            document.getElementById('datetimeInput').value = datetime;
+            updateMap();
+        }
+
+        function updateMap() {
+            const datetime = document.getElementById('datetimeInput').value;
+            if (!datetime) return;
+
+            const solarElevation = calculateSolarPosition(datetime);
+            
+            // Update sun indicator
+            document.getElementById('sunIndicator').innerHTML = 
+                `☀️ Sun: ${Math.round(solarElevation)}° elevation`;
+
+            // Calculate shade scores and render map
+            const mapView = document.getElementById('mapView');
+            const mapBounds = getMapBounds(userLocation.lat, userLocation.lng);
+            const mapSize = { width: mapView.offsetWidth, height: mapView.offsetHeight };
+
+            // Clear existing markers
+            mapView.querySelectorAll('.park-marker, .user-marker').forEach(el => el.remove());
+
+            // Add user location marker
+            const userPos = latLngToPixel(userLocation.lat, userLocation.lng, mapBounds, mapSize);
+            const userMarker = document.createElement('div');
+            userMarker.className = 'user-marker';
+            userMarker.style.left = userPos.x + 'px';
+            userMarker.style.top = userPos.y + 'px';
+            userMarker.title = 'Your location';
+            mapView.appendChild(userMarker);
+
+            // Add park markers
+            vancouverParks.forEach(park => {
+                const shadeScore = calculateShadeScore(park, solarElevation, userLocation.lat, userLocation.lng);
+                const category = getShadeCategory(shadeScore);
+                const parkPos = latLngToPixel(park.lat, park.lng, mapBounds, mapSize);
+                
+                // Only show parks within map bounds
+                if (parkPos.x >= 0 && parkPos.x <= mapSize.width && 
+                    parkPos.y >= 0 && parkPos.y <= mapSize.height) {
+                    
+                    const marker = document.createElement('div');
+                    marker.className = `park-marker ${category.class}`;
+                    marker.style.left = parkPos.x + 'px';
+                    marker.style.top = parkPos.y + 'px';
+                    marker.innerHTML = park.playground ? '🎮' : '🌳';
+                    marker.onclick = () => showParkPopup(park, shadeScore, marker);
+                    mapView.appendChild(marker);
+                }
+            });
+        }
+
+        function showParkPopup(park, shadeScore, marker) {
+            const popup = document.getElementById('parkPopup');
+            const category = getShadeCategory(shadeScore);
+            
+            popup.innerHTML = `
+                <div class="popup-header">
+                    <div class="popup-title">${park.name}</div>
+                    <div class="popup-score">${Math.round(shadeScore)}</div>
+                </div>
+                <div class="popup-details">
+                    <strong>${category.label} shade</strong> • ${park.type}
+                    <br>
+                    Distance: ${calculateDistance(userLocation.lat, userLocation.lng, park.lat, park.lng).toFixed(1)} km
+                </div>
+                <div class="popup-features">
+                    ${park.features.map(feature => `<div class="popup-feature">${feature}</div>`).join('')}
+                </div>
+            `;
+            
+            popup.style.left = marker.style.left;
+            popup.style.top = marker.style.top;
+            popup.style.display = 'block';
+            
+            // Hide popup when clicking elsewhere
+            setTimeout(() => {
+                document.addEventListener('click', function hidePopup(e) {
+                    if (!popup.contains(e.target) && e.target !== marker) {
+                        popup.style.display = 'none';
+                        document.removeEventListener('click', hidePopup);
+                    }
+                });
+            }, 100);
+        }
+
+        function toggleView() {
+            const listView = document.getElementById('listView');
+            const viewToggle = document.getElementById('viewToggle');
+            
+            if (currentView === 'map') {
+                // Switch to list view
+                listView.style.display = 'block';
+                viewToggle.innerHTML = '🗺️ Map';
+                currentView = 'list';
+                updateListView();
+            } else {
+                // Switch to map view
+                listView.style.display = 'none';
+                viewToggle.innerHTML = '📋 List';
+                currentView = 'map';
+            }
+        }
+
+        function updateListView() {
+            const datetime = document.getElementById('datetimeInput').value;
+            if (!datetime) return;
+
+            const solarElevation = calculateSolarPosition(datetime);
+            
+            const rankedParks = vancouverParks.map(park => ({
+                ...park,
+                shadeScore: calculateShadeScore(park, solarElevation, userLocation.lat, userLocation.lng),
+                distance: calculateDistance(userLocation.lat, userLocation.lng, park.lat, park.lng)
+            })).sort((a, b) => b.shadeScore - a.shadeScore);
+
+            const parksList = document.getElementById('parksList');
+            parksList.innerHTML = rankedParks.map((park, index) => {
+                const category = getShadeCategory(park.shadeScore);
+                
+                return `
+                    <div class="park-card ${category.class}">
+                        <div class="card-header">
+                            <div class="card-title">${park.name}</div>
+                            <div class="card-score">${Math.round(park.shadeScore)}</div>
+                        </div>
+                        <div class="card-details">
+                            <strong>#${index + 1} ${category.label} shade</strong> • ${park.type} • ${park.distance.toFixed(1)} km away
+                        </div>
+                        <div class="card-features">
+                            ${park.features.map(feature => `<div class="card-feature">${feature}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            setCurrentTime();
+            getUserLocation();
+            
+            // Update when time changes
+            document.getElementById('datetimeInput').addEventListener('change', updateMap);
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (currentView === 'map') {
+                updateMap();
+            }
+        });
+    </script>
+</body>
+</html>
